@@ -5,6 +5,9 @@ PROGS =	daytimetcpcli daytimetcpcli1 daytimetcpcli2 daytimetcpcli3 \
 		daytimetcpcliv6 daytimetcpsrvv6 \
 		byteorder
 
+CFLAGS = -I../lib -g -D_REENTRANT -Wall
+LIBS += -lzsi
+
 all:	${PROGS}
 
 daytimetcpcli:	daytimetcpcli.o

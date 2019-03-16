@@ -1,4 +1,9 @@
 #include	"unp.h"
+#include <zsi/base/trace.h>
+#include <zsi/app/trace2console.h>
+
+#define zdump(fmt, ...) ztrace(0, ZTRACE_LEVEL_ERR, NULL, "[%03d %s@%s]\t" fmt, \
+                               __LINE__, __FUNCTION__, __FILE__, ##__VA_ARGS__)
 
 int
 main(int argc, char **argv)
@@ -6,6 +11,9 @@ main(int argc, char **argv)
 	int					sockfd, n;
 	char				recvline[MAXLINE + 1];
 	struct sockaddr_in	servaddr;
+
+    ztrace_register(ztrace2console, NULL);
+    zdbg("beging datetime tcp client...");
 
 	if (argc != 2)
 		err_quit("usage: a.out <IPaddress>");

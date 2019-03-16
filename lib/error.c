@@ -3,6 +3,14 @@
 #include	<stdarg.h>		/* ANSI C header file */
 #include	<syslog.h>		/* for syslog() */
 
+#define TRACE_ZSI 1
+#define TRACE_MODE TRACE_ZSI
+
+#if TRACE_MODE == TRACE_ZSI
+#include <zsi/base/trace.h>
+#include <zsi/app/trace2console.h>
+#endif
+
 int		daemon_proc;		/* set nonzero by daemon_init() */
 
 static void	err_doit(int, int, const char *, va_list);
@@ -96,6 +104,10 @@ err_doit(int errnoflag, int level, const char *fmt, va_list ap)
 	n = strlen(buf);
 	if (errnoflag)
 		snprintf(buf + n, MAXLINE - n, ": %s", strerror(errno_save));
+
+#if TRACE_MODE == TRACE_ZSI
+    zerr("%s", buf);
+#else
 	strcat(buf, "\n");
 
 	if (daemon_proc) {
@@ -105,5 +117,6 @@ err_doit(int errnoflag, int level, const char *fmt, va_list ap)
 		fputs(buf, stderr);
 		fflush(stderr);
 	}
+#endif
 	return;
 }

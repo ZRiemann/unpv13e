@@ -2,6 +2,13 @@
 #include	<stdarg.h>		/* ANSI C header file */
 #include	"ourhdr.h"
 
+#define TRACE_ZSI
+#define TRACE_MODE TRACE_ZSI
+
+#if TRACE_MODE == TRACE_ZSI
+#include <zsi/base/trace.h>
+#endif
+
 static void	err_doit(int, const char *, va_list);
 
 char	*pname = NULL;		/* caller can set this from argv[0] */
@@ -95,9 +102,13 @@ err_doit(int errnoflag, const char *fmt, va_list ap)
 	vsprintf(buf, fmt, ap);
 	if (errnoflag)
 		sprintf(buf+strlen(buf), ": %s", strerror(errno_save));
-	strcat(buf, "\n");
+#if TRACE_MODE == TRACE_ZSI
+    zerr("%s", buf);
+#else
+    strcat(buf, "\n");
 	fflush(stdout);		/* in case stdout and stderr are the same */
 	fputs(buf, stderr);
 	fflush(stderr);		/* SunOS 4.1.* doesn't grok NULL argument */
+#endif
 	return;
 }

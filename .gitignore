@@ -56,3 +56,6 @@ Make.defines
 config.h
 config.log
 config.status
+GPATH
+GRTAGS
+GTAGS
