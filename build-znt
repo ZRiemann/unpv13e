@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# set alias
+git config alias.sdiff '!'"git diff && git submodule foreach 'git diff'"
+git config alias.spush 'push --recurse-submodules=on-demand'
+git config alias.supdate 'submodule update --remote --merge'
+
 cd submodules/zsi
 git submodule init
 git submodule update
@@ -11,3 +16,10 @@ cd ../..
 cd lib/
 make
 cd ..
+rm Makefile
+
+echo "
+alias:
+    git supdate ; update each submodules
+    git spush   ; push each submodules
+"
