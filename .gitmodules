@@ -1,0 +1,3 @@
+[submodule "submodules/zsi"]
+	path = submodules/zsi
+	url = https://github.com/zriemann/zsi

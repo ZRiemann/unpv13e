@@ -1,0 +1,13 @@
+#!/bin/bash
+
+cd submodules/zsi
+git submodule init
+git submodule update
+./configure
+make
+cd ../..
+
+./configure
+cd lib/
+make
+cd ..

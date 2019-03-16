@@ -1,0 +1,12 @@
+* znt 分支
+** 概述
+   将unp源码改造，作为znt项目的基础子项目。
+** 功能扩展
+   1. 引入zsi基础库；
+   2. 使用zsi的log接口输出日志；
+   3. 新增z名字空间的API；
+** 使用方法
+   #+BEGIN_SRC sh
+   # 构建znt网络基础库
+   ./build-znt
+   #+END_SRC

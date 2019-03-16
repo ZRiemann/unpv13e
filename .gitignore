@@ -50,3 +50,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# unpv13e
+Make.defines
+config.h
+config.log
+config.status
