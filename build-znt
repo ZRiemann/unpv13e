@@ -1,25 +1,46 @@
 #!/bin/bash
 
-# set alias
-git config alias.sdiff '!'"git diff && git submodule foreach 'git diff'"
-git config alias.spush 'push --recurse-submodules=on-demand'
-git config alias.supdate 'submodule update --remote --merge'
-
-cd submodules/zsi
-git submodule init
-git submodule update
-./configure
-make
-cd ../..
-
-./configure
-cd lib/
-make
-cd ..
-rm Makefile
-
-echo "
+# builde submodule zsi
+if [ ! -e "submodules/zsi/src" ]; then
+    # set alias
+    git config alias.sdiff '!'"git diff && git submodule foreach 'git diff'"
+    git config alias.spush 'push --recurse-submodules=on-demand'
+    git config alias.supdate 'submodule update --remote --merge'
+    echo "
 alias:
     git supdate ; update each submodules
     git spush   ; push each submodules
 "
+
+    cd submodules/zsi
+    git submodule init
+    git submodule update
+    ./configure
+    make
+    make install
+    cd ../..
+fi
+
+# bulid libunp.a
+if [ ! -f "./libunp.a" ]; then
+    ./configure
+    cd lib/
+    make
+    cd ..
+    rm Makefile
+
+    # reuse unp.h
+    cp config.h znt/znt/sock/
+    cp lib/unp.h znt/znt/sock/
+    sed -i 's/"..\/config.h"/"config.h"/' znt/znt/sock/unp.h
+fi
+
+# if zmake.conf or zmake modifyed, generate znt.mk again
+if [ ! -f znt.mk ] || [ $(find -name zmake.conf -newer znt.mk) ] \
+        || [ $(find -name zmake -newer znt.mk) ]; then
+    ./zmake
+fi
+
+make -f znt.mk
+
+exit 0

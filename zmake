@@ -1,0 +1,396 @@
+#!/bin/bash
+
+# linux shell color control
+# cl_: color_
+# r: red; g: green; b: blue y: yellow; p: purple
+# c: close color control
+# echo -e "${cl_r}echo red color${cl_c}"
+cl_r="\\033[31m"
+cl_g="\\033[32m"
+cl_y="\\033[33m"
+cl_b="\\033[34m"
+cl_p="\\033[35m"
+cl_c="\\033[0m"
+
+zinf(){
+    echo -e "${cl_p}$*${cl_c}"
+}
+zwar(){
+    echo -e "${cl_y}$*${cl_c}"
+}
+zmsg(){
+    echo -e "${cl_b}$*${cl_c}"
+}
+zerr(){
+    echo -e "${cl_r}$*${cl_c}"
+}
+zdbg(){
+    [ "1" = "$enable_dbg" ] && echo -e "${cl_b}$*${cl_c}"
+}
+enable_dbg=1
+
+. zmake.conf
+
+# 1. 不依赖于zmake标签
+# 2. 以文件夹为模块单位组织管理代码
+# 3. Make.defins
+
+#===============================================================================
+# MIT License
+# Copyright (C) 2018 Z.Riemann
+# https://github.com/ZRiemann/zmake.git
+#
+#-------------------------------------------------------------------------------
+# auto configure source code tree rule:
+#
+#-------------------------------------------------------------------------------
+# options
+
+# pint the configure file license
+function print_license(){
+cat << !LICENSE_END!
+MIT License
+
+Copyright (c) 2019 Z.Riemann
+https://github.com/ZRiemann/zmake.git
+!LICENSE_END!
+}
+print_license
+
+
+# generate zmake definitions header file
+# zmakedefs.h
+rm -fr ${zdist}
+mkdir -p ${zdist}
+zmake_header="${zdist}/zmakedefs.h"
+cat << !ZMAKE_DEF! > ${zmake_header}
+/**
+ * MIT License
+ * Copyright (C) Z.Riemann
+ * https://github.com/ZRiemann/zmake.git
+ */
+#ifndef _ZMAKE_DEF_H_
+#define _ZMAKE_DEF_H_
+
+#define zmake_version "${zversion}"
+#define zmake_vmajor "${zver_major}"
+#define zmake_vminor "${zver_minor}"
+#define zmake_vrevision "${zver_revision}"
+#define zmake_albt "${zver_albt}"
+#define zmake_build_date "$(date '+%Y%m%d%H%M%S')"
+#define zmake_git_rev "${zgit_rev}"
+#endif
+!ZMAKE_DEF!
+
+# 预先创建子目录
+zmake_subdir=""
+# .c => .o 规则集合
+zmake_obj_file="objs.mk"
+# 目标预制文件
+zmake_target_file="target.mk"
+# 安装临时文件
+zmake_install_file="install.mk"
+# 卸载临时文件
+zmake_uninstall_file="uninstall.mk"
+# obj 对象集合，避免重复编译
+zmake_obj_names=""
+# 项目依赖字典，保证多线程模式下依赖项目的构建顺序
+declare -A zmake_deps
+
+cat << !MAKE_ALL! > $zmake_all
+ifeq (\$(BUILDS), debug)
+	OPTM=-g
+else ifeq (\$(BUILDS), release)
+	OPTM=-O3
+else
+    BUILDS=release
+	OPTM=-O3
+endif
+
+CC=${zcc}
+AR=${zar}
+CFLAG=${zcflag}
+BIN_ROOT=${zdist}
+ZMAKE_HEADER=${zmake_header}
+BUILDS_DIR=\$(BIN_ROOT)/\$(BUILDS)
+OBJ_DIR=\$(BIN_ROOT)/\$(BUILDS)_obj
+
+# installation directory
+INST_BIN=${zinstall_bin}
+INST_LIB=${zinstall_lib}
+INST_INC=${zinstall_inc}
+
+# version control
+VERSION=${zversion}
+VER_MAJOR=${zver_major}
+VER_MINOR=${zver_minor}
+VER_REVISION=${zver_revision}
+VER_ALBT=${zver_albt}
+
+# all : prepare targets...
+!MAKE_ALL!
+printf "all : prepare" >> $zmake_all
+
+echo "# targets" > $zmake_target_file
+echo "# objects target" > $zmake_obj_file
+echo "# install target" > $zmake_install_file
+echo "install:" >> $zmake_install_file
+echo "# uninstall target" > $zmake_uninstall_file
+echo "uninstall:" >> $zmake_uninstall_file
+
+for item in ${all[@]}; do
+    zdbg "================================================================================"
+    target_so_name=""
+    target_so_major=""
+    target_so=""
+    target_ar=""
+    target_app=""
+    target_objs=""
+    target_ars=""
+    # 叶目录
+    inst_headers=""
+    # 根目录
+    install_headers=""
+
+    type=$(eval echo \${$item[type]})
+    build=$(eval echo \${$item[build]})
+    install=$(eval echo \${$item[install]})
+    source=$(eval echo \${$item[source]})
+    headers=$(eval echo \${$item[headers]})
+    if [ "$type" = "so" ]; then
+        target_so_base="lib${item}.so"
+        target_so_name="\$(BUILDS_DIR)/${target_so_base}"
+        target_so_major="${target_so_name}.\$(VER_MAJOR)"
+        target_so="${target_so_name}.\$(VERSION)"
+
+        zmake_deps[-l${item}]="$target_so"
+        install_headers=$(eval echo \${$item[install_headers]})
+        inst_headers=${install_headers##*/}
+        zdbg "output so: $target_so"
+    elif [ "$type" = "ar" ]; then
+        target_ar_base="lib${item}.a"
+        target_ar="\$(BUILDS_DIR)/${target_ar_base}"
+        zmake_deps[-l${item}]="$target_ar"
+        install_headers=$(eval echo \${$item[install_headers]})
+        inst_headers=${install_headers##*/}
+
+        zdbg "output ar: $target_ar"
+    elif [ "$type" = "so+ar" ]; then
+        target_so_base="lib${item}.so"
+        target_ar_base="lib${item}.a"
+        target_so_name="\$(BUILDS_DIR)/${target_so_base}"
+        target_so_major="${target_so_name}.\$(VER_MAJOR)"
+        target_so="${target_so_name}.\$(VERSION)"
+
+        target_ar="\$(BUILDS_DIR)/${target_ar_base}"
+        zdbg "output so+ar: $target_so + $target_ar"
+        zmake_deps[-l${item}]="$target_so $target_ar"
+        install_headers=$(eval echo \${$item[install_headers]})
+        inst_headers=${install_headers##*/}
+
+    elif [ "$type" = "app" ]; then
+        target_app_base=${item}
+        target_app="\$(BUILDS_DIR)/${item}"
+        zdbg "output app: $target_app"
+        links=$(eval echo \${$item[links]})
+    else
+        zerr "UNKNOWN type(${type}) error!"
+        zinf "type mast be: so|ar|so+ar|app"
+        exit 1
+    fi
+    zdbg "build: $build"
+    zdbg "install: $install"
+    zdbg "source: $source"
+    zdbg "links: $links"
+
+    if [ "$build" != "yes" ] && [ "$build" != "on" ]; then
+        zwar "bulid(${build}), we will not build this target!"
+        zinf "if you want build, set [build]=yes in zmake.conf"
+        continue
+    fi
+
+    # 收集依赖的头文件
+    if [ -n "$source" ]; then
+        header_files=$(find $source -type f -a \( -name \*.h -o -name \*.hpp \))
+    fi
+    if [ -n "$headers" ]; then
+        header_files+=" "
+        header_files+=$(find $headers -type f -a \( -name \*.h -o -name \*.hpp \))
+    fi
+
+    # 收集源文件
+    for path_name in $(find $source -type f -a \( -name \*.c -o -name \*.C -o \
+                             -name \*.cc -o -name \*.cpp -o -name \*.CPP \
+                             -o -name \*.c++ -o -name \*.cp -o -name \*.cxx \)); do
+        #zdbg "--------------------------------------------------------------------------------"
+        #zdbg $path_name
+        # src/thread/thread.c
+        obj_name="\$(OBJ_DIR)/${path_name%.*}.o"
+
+        obj_path="\$(OBJ_DIR)/${path_name%/*}"
+        [[ "$zmake_subdir" =~ "$obj_path" ]] || {
+            # append new sub ddir
+            zmake_subdir+=" $obj_path"
+        }
+
+        # obj的头文件依赖
+        dependent_file=""
+        for dep_header in $(grep "#include " $path_name); do
+            [ "#include" = "${dep_header}" ] && continue
+            # remove < , > or "
+            dep_header=${dep_header#*<}
+            dep_header=${dep_header%>*}
+            dep_header=${dep_header#*\"}
+            dep_header=${dep_header%\"*}
+            # zdbg "$dep_header"
+            for dep_match in ${header_files}; do
+                [[ "${dep_match}" =~ "$dep_header" ]] && dependent_file+=" ${dep_match}"
+            done
+        done
+        # zdbg "$dependent_file"
+
+        # 组装 obj 生成规则
+        if [ "$type" = "so" ]; then
+            target_objs+=" $obj_name"
+            echo >> $zmake_obj_file
+            echo "$obj_name : ${path_name}$dependent_file" >> $zmake_obj_file
+            printf "\t\$(CC) \$(OPTM) ${zmake_cflag} \$(CFLAG) -fPIC -c -o \$@ $path_name\n" >> $zmake_obj_file
+
+            [[ "$zmake_obj_names" =~ "$obj_name" ]] || {
+                # append new obj_name
+                zmake_obj_names+=" $obj_name"
+            }
+        elif [ "$type" = "ar" ]; then
+            target_ars+=" ${obj_name}.ar"
+            echo >> $zmake_obj_file
+            echo "${obj_name}.ar : ${path_name}$dependent_file" >> $zmake_obj_file
+            printf "\t\$(CC) \$(OPTM) ${zmake_cflag} \$(CFLAG) -c -o \$@ $path_name\n" >> $zmake_obj_file
+
+            [[ "$zmake_obj_names" =~ "${obj_name}.ar" ]] || {
+                # append new obj_name
+                zmake_obj_names+=" ${obj_name}.ar"
+            }
+        elif  [ "$type" = "app" ]; then
+            target_objs+=" ${obj_name}.ar"
+            echo >> $zmake_obj_file
+            echo "${obj_name}.ar : ${path_name}$dependent_file" >> $zmake_obj_file
+            printf "\t\$(CC) \$(OPTM) ${zmake_cflag} \$(CFLAG) -c -o \$@ $path_name\n" >> $zmake_obj_file
+
+            [[ "$zmake_obj_names" =~ "${obj_name}.ar" ]] || {
+                # append new obj_name
+                zmake_obj_names+=" ${obj_name}.ar"
+            }
+        elif [ "$type" = "so+ar" ]; then
+            target_objs+=" ${obj_name}"
+            echo >> $zmake_obj_file
+            echo "$obj_name : ${path_name}$dependent_file" >> $zmake_obj_file
+            printf "\t\$(CC) \$(OPTM) ${zmake_cflag} \$(CFLAG) -fPIC -c -o \$@ $path_name\n" >> $zmake_obj_file
+
+            [[ "$zmake_obj_names" =~ "${obj_name}" ]] || {
+                # append new obj_name
+                zmake_obj_names+=" ${obj_name}"
+            }
+
+            target_ars+=" ${obj_name}.ar"
+            echo >> $zmake_obj_file
+            echo "${obj_name}.ar : ${path_name}$dependent_file" >> $zmake_obj_file
+            printf "\t\$(CC) \$(OPTM) ${zmake_cflag} \$(CFLAG) -c -o \$@ $path_name\n" >> $zmake_obj_file
+
+            [[ "$zmake_obj_names" =~ "${obj_name}.ar" ]] || {
+                # append new obj_name
+                zmake_obj_names+=" ${obj_name}.ar"
+            }
+        else
+            zerr "impossible type"
+        fi
+    done
+
+    # target : obj0 obj1 ...
+    if [ -n "$target_ars" ]; then
+        echo >> $zmake_target_file
+        printf "$target_ar : $target_ars\n" >> $zmake_target_file
+        printf "\t\$(AR) cr \$@ \$^\n" >> $zmake_target_file
+        printf "\t@ranlib  \$@\n" >> $zmake_target_file
+        if [ "$install" = "yes" ]; then
+            # app 安装/卸载脚本
+            printf "\t@sudo cp ${target_ar} \$(INST_BIN)/${target_ar_base}\n" >> $zmake_install_file
+            printf "\t@sudo rm -f \$(INST_BIN)/${target_ar_base}\n" >> $zmake_uninstall_file
+        fi #[ "$install" = "yes" ]; then
+    fi
+    if [ -n "$target_objs" ]; then
+        echo >> $zmake_target_file
+        if [ "$type" = "app" ]; then
+            # 计算项目依赖
+            target_deps=" "
+            for dep in ${links}; do
+                target_deps+=${zmake_deps[$dep]}
+            done
+            zinf "$target_app depedents: $target_deps"
+            # 生成项目
+            printf "$target_app : $target_objs$target_deps\n" >> $zmake_target_file
+            printf "\t\$(CC) \$(OPTM) -Wl,--as-needed,--sort-common,-rpath=. -L\$(BUILDS_DIR) -o \$@ ${target_objs} ${links}\n" >> $zmake_target_file
+            echo "ifeq (\$(BUILDS),release)" >> $zmake_target_file
+            printf "\t@strip \$@\n" >> $zmake_target_file
+            echo "endif" >> $zmake_target_file
+
+            if [ "$install" = "yes" ]; then
+                # app 安装/卸载脚本
+                printf "\t@sudo cp ${target_app} \$(INST_BIN)/${target_app_base}\n" >> $zmake_install_file
+                printf "\t@sudo rm -f \$(INST_BIN)/${target_app_base}\n" >> $zmake_uninstall_file
+            fi #[ "$install" = "yes" ]; then
+        else
+
+            printf "$target_so : $target_objs\n" >> $zmake_target_file
+            printf "\t\$(CC) \$(OPTM) -shared -Wl,--sort-common,-soname,${target_so_base}.\$(VER_MAJOR) -o \$@ ${target_objs}\n" >> $zmake_target_file
+
+            # 建立软链接，本地测试用
+            printf "\t@rm -f ${target_so_name} ${target_so_name}.\$(VER_MAJOR)\n" >> $zmake_target_file
+            printf "\t@cd \$(BUILDS_DIR) && ldconfig -n ./ && ln -s ${target_so_base}.\$(VER_MAJOR) ${target_so_base}\n" >> $zmake_target_file
+            echo "ifeq (\$(BUILDS),release)" >> $zmake_target_file
+            printf "\t@strip \$@\n" >> $zmake_target_file
+            echo "endif" >> $zmake_target_file
+
+            if [ "$install" = "yes" ]; then
+                # 生成安装
+                printf "\t@sudo rm -f \$(INST_LIB)/${target_so_base}*\n" >> $zmake_install_file
+                printf "\t@sudo rm -fr \$(INST_INC)/${inst_headers}\n" >> $zmake_install_file
+                printf "\t@sudo cp -r ${install_headers} \$(INST_INC)\n" >> $zmake_install_file
+                printf "\t@sudo cp ${target_so} \$(INST_LIB)\n" >> $zmake_install_file
+                printf "\t@cd \$(INST_LIB) && sudo ldconfig -l ./ && sudo ldconfig && sudo ln -s lib${item}.so.\$(VER_MAJOR) lib${item}.so\n" >> $zmake_install_file
+                # 生成卸载脚本
+                printf "\t@sudo rm -f \$(INST_LIB)/${target_so_base}*\n" >> $zmake_uninstall_file
+                printf "\t@sudo rm -fr \$(INST_INC)/${inst_headers}\n" >> $zmake_uninstall_file
+            fi #[ "$install" = "yes" ]; then
+        fi
+    fi
+
+    # 链接objs，生成目标文件
+    # all: prepare <item0> <item1> ...
+    if [ -n "$target_so" ]; then
+        printf " $target_so" >> $zmake_all
+    fi
+
+    if [ -n "$target_ar" ]; then
+        printf " $target_ar" >> $zmake_all
+    fi
+
+    if [ -n "$target_app" ]; then
+        printf " $target_app" >> $zmake_all
+    fi
+
+done
+
+echo >> $zmake_all
+echo "prepare:" >> $zmake_all
+printf "\t@mkdir -p \$(BUILDS_DIR) \$(OBJ_DIR) ${zmake_subdir}\n" >> $zmake_all
+
+echo >> $zmake_all
+echo "clean:" >> $zmake_all
+printf "\t@rm -fr \$(BIN_ROOT)\n" >> $zmake_all
+
+cat ${zmake_target_file} >> $zmake_all
+cat ${zmake_obj_file} >> $zmake_all
+cat ${zmake_install_file} >> $zmake_all
+cat ${zmake_uninstall_file} >> $zmake_all
+rm -f ${zmake_obj_file} ${zmake_target_file} ${zmake_install_file} ${zmake_uninstall_file}
+exit 0

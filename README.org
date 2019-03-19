@@ -9,4 +9,6 @@
    #+BEGIN_SRC sh
    # 构建znt网络基础库
    ./build-znt
+   make
+   # make install
    #+END_SRC

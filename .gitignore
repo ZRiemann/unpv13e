@@ -59,3 +59,8 @@ config.status
 GPATH
 GRTAGS
 GTAGS
+
+# znt
+bin/
+*~
+znt.mk
