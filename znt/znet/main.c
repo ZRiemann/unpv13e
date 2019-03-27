@@ -22,42 +22,10 @@
  * , OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef _ZNT_SOCK_H_
-#define _ZNT_SOCK_H_
-
 /**
- * @file sock.h
- * @brief socket API wrapper
+ * @file main.c
+ * @brief <A brief description of what this file is.>
  * @author Z.Riemann https://github.com/ZRiemann/
- * @date 2019-03-19 Z.Riemann found
+ * @date 2019-03-20 Z.Riemann found
  */
-#include <zsi/base/type.h>
-#include "unp.h"
 
-typedef int zfd_t;
-typedef unsigned short zport_t;
-ZC_BEGIN
-ZAPI zfd_t zsocket(int family, int type, int protocol);
-ZAPI void zsock_close(zfd_t fd);
-
-ZAPI zerr_t zbind(zfd_t fd, const char *addr, socklen_t len);
-ZAPI zerr_t zlisten(zfd_t fd, int queue_size);
-ZAPI zerr_t zaccept(zfd_t fd, SA* src, socklen_t *len);
-
-ZAPI zerr_t readn(zfd_t fd, void *buf, size_t *n);
-ZAPI zerr_t written(zfd_t fd, const void *buf, size_t *n);
-ZAPI zerr_t readline(zfd_t fd, void *buf, size_t *n);
-/* IPv4 + IPv6
- */
-/* bind + listen */
-ZAPI zerr_t zsock_passive(zfd_t fd, const char *addr, zport_t port);
-/* numeric to presentation */
-ZAPI zerr_t zsock_ntop(char* str, size_t len,
-                       const SA *sockaddr, socklen_t addrlen);
-/* presentation to numeric */
-ZAPI zerr_t zsock_pton(SA *sockaddr, socklen_t addrlen,
-                       const char *str);
-ZAPI zerr_t zsock_bind_wild(zdf_t fd, int family, zport_t *port);
-
-ZC_END
-#endif /*_ZNT_SOCK_H_*/

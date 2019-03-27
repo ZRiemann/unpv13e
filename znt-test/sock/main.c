@@ -29,19 +29,47 @@
  * @date 2019-03-19 Z.Riemann found
  */
 
+#include <zsi/base/error.h>
 #include <zsi/base/trace.h>
 #include <zsi/app/trace2console.h>
 #include <znt/sock/sock.h>
 
-int main(int argc, char **argv){
-    ztrace_register(ztrace2console, NULL);
+void dump_errnos(int enable){
+    if(!enable){
+        return;
+    }
+    zerrno(ECONNABORTED);
+    zerrno(EINTR);
+    zerrno(EAGAIN);
+    zerrno(EWOULDBLOCK);
+    zerrno(EBADF);
+    zerrno(EFAULT);
+    zerrno(EINVAL);
+    zerrno(EMFILE);
+    zerrno(ENFILE);
+    zerrno(ENOBUFS);
+    zerrno(ENOMEM);
+    zerrno(ENOTSOCK);
+    zerrno(EOPNOTSUPP);
+    zerrno(EPROTO);
+    zerrno(EPERM);
+}
 
-    zinf("Beging testing libznt_sock.so...");
+void base_api(int enable){
+    if(!enable){
+        return;
+    }
     zfd_t fd = zsocket(AF_INET, SOCK_STREAM, 0);
     zbind(fd, NULL);
     zlisten(fd, 5);
     zaccept(fd, NULL, NULL);
     zsock_close(fd);
+}
+int main(int argc, char **argv){
+    ztrace_register(ztrace2console, NULL);
+    zinf("Beging testing libznt_sock.so...");
+    dump_errnos(1);
+    base_api(1);
     zinf("testing done.");
     return 0;
 }

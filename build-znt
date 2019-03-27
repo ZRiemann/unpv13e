@@ -41,6 +41,6 @@ if [ ! -f znt.mk ] || [ $(find -name zmake.conf -newer znt.mk) ] \
     ./zmake
 fi
 
-make -f znt.mk
+make -f znt.mk -j4
 
 exit 0
