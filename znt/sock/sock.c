@@ -61,14 +61,14 @@ void zsock_close(zfd_t fd){
     }
 }
 
-zerr_t zbind(zfd_t fd, const char *addr, socklen_t len){
+zerr_t zbind(zfd_t fd, SA *addr, socklen_t len){
     if(bind(fd, addr, len) < 0){
         zerrno(errno);
         return errno;
     }
     return ZEOK;
 }
-zerr_t zlisten(zfd_t fd, int queue_size){
+zerr_t zlisten(zfd_t fd, int backlog){
     char *ptr;
     /*4can override 2nd argument with environment variable */
 	if ( (ptr = getenv("LISTENQ")) != NULL){
@@ -137,14 +137,14 @@ zerr_t zsock_ntop(char* str, size_t len,
         }
         if(sin6->sin6_port){
             snprintf(port, sizeof(port), ":%d", ntohs(sin6->sin6_port));
-            strcat(str, portstr);
+            strcat(str, port);
         }
         return ZEOK;
     }
 #endif
 #ifdef AF_UNIX
     case AF_UNIX:{
-        struct sockaddr_un *unp = (struct sockaddr_un) sa;
+        struct sockaddr_un *unp = (struct sockaddr_un*) sa;
         if(unp->sun_path[0] == 0){
             strcpy(str, "(no pathname bound)");
         }else{
@@ -183,7 +183,7 @@ zerr_t zsock_pton(SA *sa, socklen_t addrlen,
  *        [out]     返回绑定的端口
  * @retval ZEOK ok
  */
-zerr_t zsock_bind_wild(zdf_t fd, int family, zport_t *port){
+zerr_t zsock_bind_wild(zfd_t sockfd, int family, zport_t *port){
     socklen_t	len;
 
 	switch (family) {
@@ -245,7 +245,7 @@ zerr_t zsock_bind_wild(zdf_t fd, int family, zport_t *port){
  * @retval ZE_EOF <fd> closed by peer
  * @retval errno  other socket errors
  */
-zerr_t readn(zfd_t fd, void *buf, size_t *n){
+zerr_t zreadn(zfd_t fd, void *buf, size_t *n){
     size_t nleft = *n;
     ssize_t nread;
     char *ptr = buf;
@@ -277,7 +277,7 @@ zerr_t readn(zfd_t fd, void *buf, size_t *n){
  * @retval ZEOK <*n> bytes written
  * @retval errno socket errors
  */
-zerr_t written(zfd_t fd, const void *buf, size_t *n){
+zerr_t zwritten(zfd_t fd, const void *buf, size_t *n){
     size_t nleft = *n;
     ssize_t nwritten = 0;
     const char *ptr = buf;
@@ -305,6 +305,6 @@ zerr_t written(zfd_t fd, const void *buf, size_t *n){
  *        [out] *n The line buffer readed
  * @retval ZEOK read one line
  */
-zerr_t readline(zfd_t fd, void *buf, size_t *n){
+zerr_t zreadline(zfd_t fd, void *buf, size_t *n){
     return ZENOT_SUPPORT;
 }

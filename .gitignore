@@ -64,3 +64,9 @@ GTAGS
 bin/
 *~
 znt.mk
+tcpcliserv/
+ioctl/
+names/
+ping/
+sockopt/
+icmpd/

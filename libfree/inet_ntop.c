@@ -57,7 +57,11 @@ inet_ntop(af, src, dst, size)
 	int af;
 	const void *src;
 	char *dst;
+#if 0
 	size_t size;
+#else
+    socklen_t size;
+#endif
 {
 	switch (af) {
 	case AF_INET:

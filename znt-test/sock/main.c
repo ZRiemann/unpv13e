@@ -60,14 +60,25 @@ void base_api(int enable){
         return;
     }
     zfd_t fd = zsocket(AF_INET, SOCK_STREAM, 0);
-    zbind(fd, NULL);
+    zbind(fd, NULL, 0);
     zlisten(fd, 5);
     zaccept(fd, NULL, NULL);
     zsock_close(fd);
 }
+
+void dumpa(int a){
+    zdbg("dumpa(%d)",a);
+}
+
+void dumpb(int b){
+    zinf("dumpb(%d)", b);
+}
+
+#define dump dumpb
 int main(int argc, char **argv){
     ztrace_register(ztrace2console, NULL);
     zinf("Beging testing libznt_sock.so...");
+    dump(1);
     dump_errnos(1);
     base_api(1);
     zinf("testing done.");

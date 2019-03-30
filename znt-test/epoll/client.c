@@ -22,44 +22,48 @@
  * , OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef _ZNT_SOCK_H_
-#define _ZNT_SOCK_H_
-
 /**
- * @file sock.h
- * @brief socket API wrapper
+ * @file client.c
+ * @brief <A brief description of what this file is.>
  * @author Z.Riemann https://github.com/ZRiemann/
- * @date 2019-03-19 Z.Riemann found
+ * @date 2019-03-30 Z.Riemann found
  */
-#include <zsi/base/type.h>
-#include "unp.h"
+#include <zsi/base/trace.h>
+#include <zsi/app/trace2console.h>
+#include <znt/sock/sock.h>
 
-typedef int zfd_t;
-typedef unsigned short zport_t;
-typedef struct sockaddr zsa_t;
+int main(int argc, char **argv){
+    	int					sockfd, n;
+	char				recvline[MAXLINE + 1];
+	struct sockaddr_in	servaddr;
 
-ZC_BEGIN
-ZAPI zfd_t zsocket(int family, int type, int protocol);
-ZAPI void zsock_close(zfd_t fd);
+    ztrace_register(ztrace2console, NULL);
+    zdbg("beging datetime tcp client...");
 
-ZAPI zerr_t zbind(zfd_t fd, zsa_t *addr, socklen_t len);
-ZAPI zerr_t zlisten(zfd_t fd, int queue_size);
-ZAPI zerr_t zaccept(zfd_t fd, zsa_t* src, socklen_t *len);
+	if (argc != 2)
+		zerr("usage: a.out <IPaddress>");
 
-ZAPI zerr_t zreadn(zfd_t fd, void *buf, size_t *n);
-ZAPI zerr_t zwritten(zfd_t fd, const void *buf, size_t *n);
-ZAPI zerr_t zreadline(zfd_t fd, void *buf, size_t *n);
-/* IPv4 + IPv6
- */
-/* bind + listen */
-ZAPI zerr_t zsock_passive(zfd_t fd, const char *addr, zport_t port);
-/* numeric to presentation */
-ZAPI zerr_t zsock_ntop(char* str, size_t len,
-                       const zsa_t *sockaddr, socklen_t addrlen);
-/* presentation to numeric */
-ZAPI zerr_t zsock_pton(SA *sockaddr, socklen_t addrlen,
-                       const char *str);
-ZAPI zerr_t zsock_bind_wild(zfd_t fd, int family, zport_t *port);
+	if ( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+		zerr("socket error");
 
-ZC_END
-#endif /*_ZNT_SOCK_H_*/
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_port   = htons(13000);	/* daytime server */
+	if (inet_pton(AF_INET, argv[1], &servaddr.sin_addr) <= 0)
+		zerr("inet_pton error for %s", argv[1]);
+
+	if (connect(sockfd, (SA *) &servaddr, sizeof(servaddr)) < 0)
+		zerr("connect error");
+    sleep(1);
+    zdbg("connect ok");
+    send(sockfd, "client", 6, 0);
+    zdbg("send client");
+	while ( (n = read(sockfd, recvline, MAXLINE)) > 0) {
+		recvline[n] = 0;	/* null terminate */
+        zdbg("recv[%d]: %s\n",n, recvline);
+        break;
+	}
+	if (n < 0)
+		zerr("read error");
+	exit(0);
+}
