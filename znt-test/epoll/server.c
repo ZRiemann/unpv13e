@@ -53,8 +53,13 @@ typedef struct zepoll_event_s{
  * @par control session timeout
  */
 typedef struct zepoll_events_s{
-    
+    int (*on_event1)(zfd_t);
+    int on_event;
 }zepevs_t;
+
+int on_event_imp(zfd_t fd){
+    printf("on_event_imp(%d)\n", fd);
+}
 void setnonblocking(zfd_t sockfd){
     int val = fcntl(sockfd, F_GETFL, 0);
 	fcntl(sockfd, F_SETFL, val | O_NONBLOCK);
@@ -63,9 +68,7 @@ void setnonblocking(zfd_t sockfd){
 /**
  * @param [in,out] zfd_t listening sockets
  */
-int on_epoll_init(zfd_t, zfd_t **, size_t *len){
-    
-}
+//int on_epoll_init(zfd_t, zfd_t **, size_t *len){}
 /**
  * @retval 0 ok
  * @retval 1 close
@@ -100,16 +103,6 @@ int on_event(zfd_t fd){
 }
 
 void on_accept(zfd_t fd){
-    setnonblocking(conn_sock);
-    ev.events = EPOLLIN | EPOLLET;
-    ev.data.fd = conn_sock;
-    if (epoll_ctl(epollfd, EPOLL_CTL_ADD, conn_sock,
-                  &ev) == -1) {
-        perror("epoll_ctl: conn_sock");
-        exit(EXIT_FAILURE);
-    }else{
-        printf("epoll_ctl add %d\n", conn_sock);
-    }
 }
 
 #if ZEPOLL_ASYNC
@@ -133,6 +126,12 @@ int main(int argc, char **argv){
     zfd_t listen_sock, conn_sock, epollfd;
     struct epoll_event ev, events[MAX_EVENTS];
     struct sockaddr_in	servaddr;
+
+    zepevs_t epevs;
+    epevs.on_event = 0;
+    epevs.on_event1 = on_event_imp;
+    epevs.on_event1(1);
+
     /* Code to set up listening socket, 'listen_sock',
        (socket(), bind(), listen()) omitted */
     listen_sock = zsocket(AF_INET, SOCK_STREAM, 0);
@@ -179,6 +178,16 @@ int main(int argc, char **argv){
                     exit(EXIT_FAILURE);
                 }
                 on_accept(conn_sock);
+                setnonblocking(conn_sock);
+                ev.events = EPOLLIN | EPOLLET;
+                ev.data.fd = conn_sock;
+                if (epoll_ctl(epollfd, EPOLL_CTL_ADD, conn_sock,
+                              &ev) == -1) {
+                    perror("epoll_ctl: conn_sock");
+                    exit(EXIT_FAILURE);
+                }else{
+                    printf("epoll_ctl add %d\n", conn_sock);
+                }
             }
 #if ZEPOLL_ASYNC
             else if(0){
