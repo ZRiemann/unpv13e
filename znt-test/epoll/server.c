@@ -67,8 +67,12 @@ void setnonblocking(zfd_t sockfd){
 
 /**
  * @param [in,out] zfd_t listening sockets
- */
-//int on_epoll_init(zfd_t, zfd_t **, size_t *len){}
+ *
+int on_epoll_init(zfd_t, zfd_t **, size_t *len){
+    
+}*/
+
+>>>>>>> znt-dep
 /**
  * @retval 0 ok
  * @retval 1 close
