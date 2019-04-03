@@ -62,10 +62,11 @@ void setnonblocking(zfd_t sockfd){
 
 /**
  * @param [in,out] zfd_t listening sockets
- */
+ *
 int on_epoll_init(zfd_t, zfd_t **, size_t *len){
     
-}
+}*/
+
 /**
  * @retval 0 ok
  * @retval 1 close
@@ -100,9 +101,10 @@ int on_event(zfd_t fd){
 }
 
 void on_accept(zfd_t fd){
-    setnonblocking(conn_sock);
+    setnonblocking(fd);
+        /*
     ev.events = EPOLLIN | EPOLLET;
-    ev.data.fd = conn_sock;
+    ev.data.fd = fd;
     if (epoll_ctl(epollfd, EPOLL_CTL_ADD, conn_sock,
                   &ev) == -1) {
         perror("epoll_ctl: conn_sock");
@@ -110,6 +112,7 @@ void on_accept(zfd_t fd){
     }else{
         printf("epoll_ctl add %d\n", conn_sock);
     }
+    */
 }
 
 #if ZEPOLL_ASYNC
