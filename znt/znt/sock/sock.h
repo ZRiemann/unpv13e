@@ -34,17 +34,24 @@
 #include <zsi/base/type.h>
 #include "unp.h"
 
+#define ZSOCK_INVALID -1
 typedef int zfd_t;
 typedef unsigned short zport_t;
+typedef struct sockaddr_storage zss_t;
 typedef struct sockaddr zsa_t;
+typedef socklen_t zsa_len_t;
 
 ZC_BEGIN
 ZAPI zfd_t zsocket(int family, int type, int protocol);
 ZAPI void zsock_close(zfd_t fd);
+zinline zsock_setnonblocking(zfd_t){
+    int val = fcntl(sockfd, F_GETFL, 0);
+	fcntl(sockfd, F_SETFL, val | O_NONBLOCK);
+}
 
 ZAPI zerr_t zbind(zfd_t fd, zsa_t *addr, socklen_t len);
 ZAPI zerr_t zlisten(zfd_t fd, int queue_size);
-ZAPI zerr_t zaccept(zfd_t fd, zsa_t* src, socklen_t *len);
+ZAPI zerr_t zaccept(zfd_t fd, zsa_t* src, socklen_t *len, int *flag);
 
 ZAPI zerr_t zreadn(zfd_t fd, void *buf, size_t *n);
 ZAPI zerr_t zwritten(zfd_t fd, const void *buf, size_t *n);

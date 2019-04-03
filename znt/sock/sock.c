@@ -1,54 +1,17 @@
 #include <zsi/base/error.h>
-#include <zsi/base/trace.h>
 #include <znt/sock/sock.h>
 
-// redifine trace function, add title
-#define UNP_TITLE "ZNT-SOCK"
-#define UNP_LEVEL_CTL 0
-#undef zdbg
-#undef zmsg
-#undef zwar
-#undef zerr
-#undef zinf
-#undef zerrno
-
-#if ZTRACE_WITH_FILE
-#define zdbg(fmt, ...) ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_DBG, UNP_TITLE, "[%03d %s@%s]\t" fmt,\
-                              __LINE__, __FUNCTION__, __FILE__, ##__VA_ARGS__)
-#define zmsg(fmt, ...) ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_MSG, UNP_TITLE, "[%03d %s@%s]\t" fmt,\
-                              __LINE__, __FUNCTION__, __FILE__, ##__VA_ARGS__)
-#define zwar(fmt, ...) ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_WAR, UNP_TITLE, "[%03d %s@%s]\t" fmt,\
-                              __LINE__, __FUNCTION__, __FILE__, ##__VA_ARGS__)
-#define zerr(fmt, ...) ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_ERR, UNP_TITLE, "[%03d %s@%s]\t" fmt,\
-                              __LINE__, __FUNCTION__, __FILE__, ##__VA_ARGS__)
-#define zinf(fmt, ...) ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_INF, UNP_TITLE, "[%03d %s@%s]\t" fmt,\
-                              __LINE__, __FUNCTION__, __FILE__, ##__VA_ARGS__)
-#define zerrno(errno) if(ZEOK != errno){\
-    ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_ERR, UNP_TITLE, "[%03d %s@%s]\t %s", \
-           __LINE__, __FUNCTION__, __FILE__, zstrerr(errno));}
-#else
-#define zdbg(fmt, ...) ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_DBG, UNP_TITLE, "[%03d %s]\t" fmt,\
-                              __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define zmsg(fmt, ...) ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_MSG, UNP_TITLE, "[%03d %s]\t" fmt,\
-                              __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define zwar(fmt, ...) ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_WAR, UNP_TITLE, "[%03d %s]\t" fmt,\
-                              __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define zerr(fmt, ...) ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_ERR, UNP_TITLE, "[%03d %s]\t" fmt,\
-                              __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define zinf(fmt, ...) ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_INF, UNP_TITLE, "[%03d %s]\t" fmt,\
-                              __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define zerrno(errno) if(ZEOK != errno){\
-    ztrace(UNP_LEVEL_CTL, ZTRACE_LEVEL_ERR, UNP_TITLE, "[%03d %s]\t %s", \
-           __LINE__, __FUNCTION__, zstrerr(errno));}
-#endif
+#define ZTRACE_TITLE "ZNT-SOCK"
+#define ZTRACE_LEVEL_CTL 0x1f
+#include <zsi/base/trace.h>
 
 zfd_t zsocket(int family, int type, int protocol){
     zfd_t fd = socket(family, type, protocol);
     if(fd < 0){
         zerrno(errno);
-        zerrno(ZESOCK_INVALID);
+        fd = ZSOCK_INVALID;
     }else{
-        zdbg("create fd: %d", fd);
+        zmsg("create fd: %d", fd);
     }
     return fd;
 }
@@ -57,7 +20,7 @@ void zsock_close(zfd_t fd){
     if(-1 == close(fd)){
         zerrno(ZESOCK_INVALID);
     }else{
-        zdbg("close fd: %d", fd);
+        zmsg("close fd: %d", fd);
     }
 }
 
@@ -66,6 +29,7 @@ zerr_t zbind(zfd_t fd, SA *addr, socklen_t len){
         zerrno(errno);
         return errno;
     }
+    zmsg("bind(fd<%d>)", fd);
     return ZEOK;
 }
 zerr_t zlisten(zfd_t fd, int backlog){
@@ -79,6 +43,7 @@ zerr_t zlisten(zfd_t fd, int backlog){
         zerrno(errno);
         return errno;
     }
+    zmsg("listen(fd<%d>, backlog<%d>)", fd, backlog);
     return ZEOK;
 }
 
@@ -88,14 +53,14 @@ zerr_t zlisten(zfd_t fd, int backlog){
  * @param fd [in] a socket bind(2) and listen(2)
  * @param src [out] the address of the peer socket, NULL
  * @param len [in|out] sizeof <src>
- * @param flag [in] accept4(2) 0|SOCK_NONBLOCK|SOCK_CLOEXEC
+ * @param flag [in, out] accept4(2) 0|SOCK_NONBLOCK|SOCK_CLOEXEC, out of EAGAIN|0
  * @return -1 on error
  *         >0 a file descriptor(linux not inferit O_NONBLOCK|O_ASYNC from <fd>)
  */
-zfd_t zaccept(zfd_t fd, SA* src, socklen_t *len){
+zfd_t zaccept(zfd_t fd, SA* src, socklen_t *len, int *flag){
     zfd_t _fd;
 again:
-    if ( (_fd = accept(fd, src, len)) < 0){
+    if ( (_fd = accept4(fd, src, len, *flag)) < 0){
         zerr_t err = errno;
         zerrno(err);
 #ifdef EPROTO // apuev13e $5.11
@@ -107,6 +72,8 @@ again:
             goto again;
         }
 #endif //EPROTO
+        _fd = ZSOCK_INVALID;
+        *flag = err == EAGAIN ? EAGAIN : 0;
     }
     return _fd;
 }

@@ -31,12 +31,61 @@
 
 #include <zsi/base/error.h>
 #include <zsi/base/trace.h>
+#include <zsi/app/waitloop.h>
 #include <zsi/app/trace2console.h>
+#include <znt/sock/transport.h>
 
+static zerr_t on_pollin(ztns_t *tns, ztns_conn_t *conn){
+    zerr_t ret = ZEOK;
+    // receive data
+    ztns_pkt_t *pkt = ztns_pkt_fetch(conn);
+    if(!pkt){
+        zerrno(ZEMEM_INSUFFICIENT);
+        return ZEMEM_INSUFFICIENT;
+    }
+
+    if(ZEOK == (ret = ztns_recv(conn, pkt))){
+        ztns_pkt_dump(pkt);
+#if 0
+        // if packet needs read more data.
+        // it will be fetched on next pollin by call ztns_pkt_fetch(conn)
+        ztns_pkt_store(conn, pkt);
+#else
+        // echo the received packet
+        ztns_send(conn, ztns_pkt_t pkt); // echo back, pkt will recycle after send.
+#endif
+    }else{
+        ztns_pkt_dump(pkt);
+        ztns_pkt_free(pkt); // if not send, just free it.
+    }
+    return ret;
+}
+
+static zerr_t on_accept(ztns_t *tns, ztns_conn_t *conn){
+    // verify connection
+    // just accept all connections
+    conn->on_event = on_pollin;
+    return ZEOK;
+}
 
 int main(int argc, char **argv){
+    ztns_t *tns;
+    struct sockaddr_in	servaddr;
+
     ztrace_register(ztrace2console, NULL);
-    zmsg("Beging testing transport_server...");
+    zmsg("transport_server...");
+    ztns_create(&tns);
+    ztns_init(tns);
+
+    servaddr.sin_family      = AF_INET;
+	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	servaddr.sin_port        = htons(13000);
+
+    ztns_listen(tns,(zsa_t*)servaddr, sizeof(servaddr), on_accept);
+    zwait_exit_signal();
+
+    ztns_fini(tns);
+    ztns_destroy(tns);
     zmsg("testing done.");
     return ZEOK;
 

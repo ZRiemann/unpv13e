@@ -72,7 +72,6 @@ int on_epoll_init(zfd_t, zfd_t **, size_t *len){
     
 }*/
 
->>>>>>> znt-dep
 /**
  * @retval 0 ok
  * @retval 1 close
