@@ -356,7 +356,7 @@ for item in ${all[@]}; do
                 printf "\t@sudo rm -fr \$(INST_INC)/${inst_headers}\n" >> $zmake_install_file
                 printf "\t@sudo cp -r ${install_headers} \$(INST_INC)\n" >> $zmake_install_file
                 printf "\t@sudo cp ${target_so} \$(INST_LIB)\n" >> $zmake_install_file
-                printf "\t@cd \$(INST_LIB) && sudo ldconfig -l ./ && sudo ldconfig && sudo ln -s lib${item}.so.\$(VER_MAJOR) lib${item}.so\n" >> $zmake_install_file
+                printf "\t@cd \$(INST_LIB) && sudo ldconfig -l && sudo ldconfig && sudo ln -s lib${item}.so.\$(VER_MAJOR) lib${item}.so\n" >> $zmake_install_file
                 # 生成卸载脚本
                 printf "\t@sudo rm -f \$(INST_LIB)/${target_so_base}*\n" >> $zmake_uninstall_file
                 printf "\t@sudo rm -fr \$(INST_INC)/${inst_headers}\n" >> $zmake_uninstall_file
